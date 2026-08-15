@@ -55,3 +55,24 @@ From the main menu you can also view and unmount existing NFS/SMB shares.
 - Every write to `/etc/fstab` is preceded by a timestamped backup
   (`/etc/fstab.bak.<epoch>`).
 - Check `/var/log/map-share.log` for details if a mount fails.
+
+## Running inside a Proxmox LXC container or VM
+
+The script works inside both Proxmox **VMs** and **LXC containers**, but
+unprivileged LXC containers block the `mount(2)` syscall for `nfs`/`cifs` by
+default — even when running as root inside the container. The script
+detects when it's running inside an LXC container and will warn you up
+front, and adds a troubleshooting hint to the mount-failure screen if this
+is likely the cause (typically an "Operation not permitted" error).
+
+To allow NFS/CIFS mounts from inside an unprivileged LXC container, run
+this on the **Proxmox host** (not inside the container), then restart the
+container:
+
+```bash
+pct set <VMID> --features mount=nfs;cifs
+```
+
+Alternatively, mark the container **privileged** in its Proxmox options.
+
+VMs are unaffected by this restriction — no extra configuration is needed.
