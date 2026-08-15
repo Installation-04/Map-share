@@ -242,7 +242,7 @@ verify_and_report() {
 
 manage_existing() {
     local mounts
-    mounts=$(mount | grep -E "type (nfs|cifs)" | awk '{print $3}')
+    mounts=$(mount | grep -E "type (nfs4?|cifs)" | awk '{print $3}')
 
     if [[ -z "$mounts" ]]; then
         whiptail --backtitle "$BACKTITLE" --title "No Shares Found" \
@@ -298,7 +298,6 @@ main_menu() {
 
 run_mount_wizard() {
     choose_protocol
-    choose_mount_point
 
     if [[ "$PROTOCOL" == "NFS" ]]; then
         gather_nfs_details
@@ -306,6 +305,7 @@ run_mount_wizard() {
         gather_smb_details
     fi
 
+    choose_mount_point
     choose_persistence
     confirm_summary
 
