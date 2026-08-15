@@ -25,6 +25,14 @@ network shares on Linux, with optional persistence via `/etc/fstab`.
 
 ## Usage
 
+### One-time run (no clone required)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Installation-04/Map-share/main/map-share.sh | sudo bash
+```
+
+### Run from a local clone
+
 ```bash
 sudo ./map-share.sh
 ```
