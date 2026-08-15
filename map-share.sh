@@ -49,6 +49,46 @@ ensure_pkg() {
 }
 
 # ---------------------------------------------------------------------------
+# Proxmox LXC detection
+#
+# Unprivileged Proxmox LXC containers block the mount(2) syscall for
+# filesystem types like nfs/nfs4/cifs by default, even as root inside the
+# container. The container needs either:
+#   - to be privileged, or
+#   - the nfs/cifs mount features enabled on the Proxmox host, e.g.:
+#       pct set <VMID> --features mount=nfs;cifs
+#     (and the container restarted)
+# VMs are unaffected — this only applies to LXC containers.
+# ---------------------------------------------------------------------------
+
+detect_lxc() {
+    IS_LXC=false
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        if [[ "$(systemd-detect-virt --container 2>/dev/null)" == "lxc" ]]; then
+            IS_LXC=true
+        fi
+    elif [[ -f /run/systemd/container ]] && grep -qi lxc /run/systemd/container 2>/dev/null; then
+        IS_LXC=true
+    elif grep -qa container=lxc /proc/1/environ 2>/dev/null; then
+        IS_LXC=true
+    fi
+}
+
+warn_if_lxc() {
+    if $IS_LXC; then
+        log "Detected Proxmox/LXC container environment."
+        whiptail --backtitle "$BACKTITLE" --title "LXC Container Detected" --msgbox \
+            "This looks like a Proxmox LXC container.\n\nUnprivileged LXC containers block NFS/CIFS mounts by default. If the mount below fails with 'Operation not permitted', run one of these on the Proxmox HOST (not in this container), then restart the container:\n\n  pct set <VMID> --features mount=nfs;cifs\n\nor mark the container privileged.\n\nThis does not apply to VMs." 16 74
+    fi
+}
+
+lxc_mount_hint() {
+    if $IS_LXC; then
+        printf '\n\nThis container looks like an LXC container. If the error above mentions '\''Operation not permitted'\'' or '\''permission denied'\'', it'\''s likely because unprivileged LXC containers block NFS/CIFS mounts by default. On the Proxmox host (not in this container) run:\n\n  pct set <VMID> --features mount=nfs;cifs\n\nthen restart the container, or mark it privileged.'
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Step 1: choose protocol
 # ---------------------------------------------------------------------------
 
@@ -170,7 +210,7 @@ do_nfs_mount() {
 
     log "Mounting NFS ${SERVER_IP}:${EXPORT_PATH} -> ${MOUNT_POINT}"
     if ! mount -t nfs "${SERVER_IP}:${EXPORT_PATH}" "$MOUNT_POINT" 2>>"$LOGFILE"; then
-        die "Mount failed. Check /var/log/map-share.log for details.\n\nCommon causes: wrong export path, NFS server not allowing this host's IP, or the nfs-common package missing."
+        die "Mount failed. Check /var/log/map-share.log for details.\n\nCommon causes: wrong export path, NFS server not allowing this host's IP, or the nfs-common package missing.$(lxc_mount_hint)"
     fi
 
     if $PERSIST; then
@@ -199,7 +239,7 @@ EOF
     log "Mounting SMB //${SERVER_IP}/${SMB_SHARE} -> ${MOUNT_POINT}"
     if ! mount -t cifs "//${SERVER_IP}/${SMB_SHARE}" "$MOUNT_POINT" \
         -o "credentials=${credfile},vers=${SMB_VERSION},uid=0,gid=0,iocharset=utf8" 2>>"$LOGFILE"; then
-        die "Mount failed. Check /var/log/map-share.log for details.\n\nCommon causes: wrong username/password, wrong share name, or SMB version mismatch with the server."
+        die "Mount failed. Check /var/log/map-share.log for details.\n\nCommon causes: wrong username/password, wrong share name, or SMB version mismatch with the server.$(lxc_mount_hint)"
     fi
 
     if $PERSIST; then
@@ -326,4 +366,6 @@ run_mount_wizard() {
 require_root
 ensure_whiptail
 touch "$LOGFILE"
+detect_lxc
+warn_if_lxc
 main_menu
