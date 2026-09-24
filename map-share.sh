@@ -227,7 +227,8 @@ do_smb_mount() {
     ensure_pkg cifs-utils
     mkdir -p "$MOUNT_POINT"
 
-    local credfile="/etc/samba/creds-${SMB_SHARE}-$(echo "$SERVER_IP" | tr '.' '-')"
+    local credfile
+    credfile="/etc/samba/creds-${SMB_SHARE}-$(echo "$SERVER_IP" | tr '.' '-')"
     mkdir -p /etc/samba
     cat > "$credfile" << EOF
 username=${SMB_USER}
