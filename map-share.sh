@@ -259,7 +259,7 @@ EOF
 
 verify_and_report() {
     local listing
-    listing=$(ls -la "$MOUNT_POINT" 2>&1 | head -n 20)
+    listing=$(find "$MOUNT_POINT" -maxdepth 1 -not -name '' -exec ls -la {} + 2>&1 | head -n 20)
 
     if $PERSIST; then
         whiptail --backtitle "$BACKTITLE" --title "Testing Persistence" \
